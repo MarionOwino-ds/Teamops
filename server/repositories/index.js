@@ -36,6 +36,12 @@ export function findUserByEmail(email) {
   return mapUser(getDatabase().prepare('select * from users where email = ?').get(email))
 }
 
+/** Returns only the password hash for a given email (never exposed via mapUser). */
+export function getPasswordHashByEmail(email) {
+  const row = getDatabase().prepare('select password_hash from users where email = ?').get(email)
+  return row ? row.password_hash : null
+}
+
 export function findUserById(id) {
   return mapUser(getDatabase().prepare('select * from users where id = ?').get(id))
 }

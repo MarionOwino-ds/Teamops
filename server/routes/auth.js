@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import bcrypt from 'bcryptjs'
 import { createSession, destroySession, requireAuth } from '../auth.js'
-import { createUser, findUserByEmail, findUserById, updateUserProfile } from '../repositories/index.js'
+import { createUser, findUserByEmail, getPasswordHashByEmail, updateUserProfile } from '../repositories/index.js'
 
 const router = Router()
 
@@ -31,7 +31,8 @@ router.post('/login', (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email and password are required' })
 
   const user = findUserByEmail(String(email).trim().toLowerCase())
-  if (!user || !bcrypt.compareSync(String(password), user.passwordHash)) {
+  const passwordHash = user ? getPasswordHashByEmail(user.email) : null
+  if (!user || !passwordHash || !bcrypt.compareSync(String(password), passwordHash)) {
     return res.status(401).json({ error: 'Invalid email or password' })
   }
   if (!user.active) return res.status(403).json({ error: 'This account has been deactivated' })

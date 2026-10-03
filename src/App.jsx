@@ -46,7 +46,6 @@ function AppShell() {
     return () => { mounted = false }
   }, [user, activeWorkspaceId])
 
-  const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceId) || null
   const filteredTasks = useMemo(() => tasks.filter((task) => task.title.toLowerCase().includes(query.toLowerCase())), [query, tasks])
 
   if (loading) return <LoadingScreen />

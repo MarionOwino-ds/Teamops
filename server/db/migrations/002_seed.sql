@@ -4,7 +4,7 @@
 
 -- Demo owner account (password: "password123" — change it before inviting a real team).
 insert or ignore into users (id, name, email, password_hash, role)
-select 1, 'Marion', 'marion@teamops.local', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'owner'
+select 1, 'Marion', 'marion@teamops.local', '$2b$10$XBZv0GPlKQLlmmMJS9YNJeWa6ZWJ9eO42KkLo9sPlSyeJVXEJIAzy', 'owner'
 where not exists (select 1 from users where email = 'marion@teamops.local');
 
 -- Default workspace.
