@@ -1,31 +1,34 @@
 import crypto from 'node:crypto'
+import { getDatabase } from './db/index.js'
 import { findMembership, findUserById } from './repositories/index.js'
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30 // 30 days
 
-// In-memory session store. For a single-server pilot this is fine; when the app
-// moves to multiple instances or Supabase, swap this for a shared store.
-const sessions = new Map()
+// Sessions are persisted in SQLite (hashed tokens) so users stay signed in
+// across server restarts. When the app moves to Supabase, replace this with
+// Supabase Auth JWTs.
+const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex')
 
 export function createSession(userId) {
   const token = crypto.randomBytes(32).toString('hex')
-  sessions.set(token, { userId, expiresAt: Date.now() + SESSION_TTL_MS })
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString()
+  getDatabase().prepare('insert into sessions (token_hash, user_id, expires_at) values (?, ?, ?)').run(hashToken(token), userId, expiresAt)
   return token
 }
 
 export function destroySession(token) {
-  sessions.delete(token)
+  getDatabase().prepare('delete from sessions where token_hash = ?').run(hashToken(token))
 }
 
 export function getSessionUser(token) {
   if (!token) return null
-  const session = sessions.get(token)
+  const session = getDatabase().prepare('select * from sessions where token_hash = ?').get(hashToken(token))
   if (!session) return null
-  if (session.expiresAt < Date.now()) {
-    sessions.delete(token)
+  if (new Date(session.expires_at).getTime() < Date.now()) {
+    getDatabase().prepare('delete from sessions where token_hash = ?').run(hashToken(token))
     return null
   }
-  return findUserById(session.userId)
+  return findUserById(session.user_id)
 }
 
 /** Express middleware: requires a valid session token in the Authorization header. */

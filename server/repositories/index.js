@@ -20,7 +20,7 @@ function mapProject(row) {
 
 function mapTask(row) {
   if (!row) return null
-  return { id: row.id, workspaceId: row.workspace_id, projectId: row.project_id, title: row.title, description: row.description, status: row.status, priority: row.priority, dueDate: row.due_date, assigneeId: row.assignee_id, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at }
+  return { id: row.id, workspaceId: row.workspace_id, projectId: row.project_id, title: row.title, description: row.description, status: row.status, priority: row.priority, dueDate: row.due_date, assigneeId: row.assignee_id, assigneeName: row.assignee_name || null, createdBy: row.created_by, createdAt: row.created_at, updatedAt: row.updated_at }
 }
 
 function mapRecord(row) {
@@ -167,12 +167,23 @@ export function deleteProject(id) {
 // ---------------------------------------------------------------------------
 
 export function listTasks(workspaceId, { projectId } = {}) {
-  if (projectId) return getDatabase().prepare('select * from tasks where workspace_id = ? and project_id = ? order by created_at asc').all(workspaceId, projectId).map(mapTask)
-  return getDatabase().prepare('select * from tasks where workspace_id = ? order by created_at asc').all(workspaceId).map(mapTask)
+  const base = `
+    select t.*, u.name as assignee_name
+    from tasks t
+    left join users u on u.id = t.assignee_id
+    where t.workspace_id = ?
+  `
+  if (projectId) return getDatabase().prepare(`${base} and t.project_id = ? order by t.created_at asc`).all(workspaceId, projectId).map(mapTask)
+  return getDatabase().prepare(`${base} order by t.created_at asc`).all(workspaceId).map(mapTask)
 }
 
 export function findTaskById(id) {
-  return mapTask(getDatabase().prepare('select * from tasks where id = ?').get(id))
+  return mapTask(getDatabase().prepare(`
+    select t.*, u.name as assignee_name
+    from tasks t
+    left join users u on u.id = t.assignee_id
+    where t.id = ?
+  `).get(id))
 }
 
 export function createTask({ id = randomUUID(), workspaceId, projectId = null, title, description = null, status = 'To Do', priority = 'Medium', dueDate = null, assigneeId = null, createdBy }) {
