@@ -17,7 +17,17 @@ export function useWorkspaceData(workspaceId) {
   const [error, setError] = useState('')
 
   const refresh = useCallback(async () => {
-    if (!workspaceId) return
+    if (!workspaceId) {
+      // No active workspace yet (e.g. brand-new account): show empty state,
+      // not an endless spinner.
+      setProjects([])
+      setTasks([])
+      setRecords({})
+      setMembers([])
+      setLoading(false)
+      setError('')
+      return
+    }
     setLoading(true)
     setError('')
     try {

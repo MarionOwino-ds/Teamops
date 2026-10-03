@@ -61,6 +61,7 @@ function AppShell() {
 
   const createTask = async (event) => {
     event.preventDefault()
+    if (!activeWorkspaceId) { setToast('Create a workspace first'); window.setTimeout(() => setToast(''), 2200); return }
     const form = new FormData(event.currentTarget)
     try {
       await workspaceData.createTask({ title: form.get('title'), description: form.get('description') || null })
@@ -73,6 +74,7 @@ function AppShell() {
   }
 
   const addRecord = async (page, record) => {
+    if (!activeWorkspaceId) { setToast('Create a workspace first'); window.setTimeout(() => setToast(''), 2200); return }
     try {
       await workspaceData.createRecord(page, record)
       setToast(`${page.slice(0, -1)} created successfully`)
@@ -82,30 +84,78 @@ function AppShell() {
     }
   }
 
+  const createWorkspace = async (name) => {
+    try {
+      const { workspace } = await api.createWorkspace({ name })
+      setWorkspaces((current) => [...current, workspace])
+      setActiveWorkspaceId(workspace.id)
+      localStorage.setItem('teamops-workspace-id', workspace.id)
+      setToast('Workspace created')
+      window.setTimeout(() => setToast(''), 2200)
+    } catch {
+      setToast('Unable to create workspace')
+    }
+  }
+
   return <div className={`app-shell ${settings.darkMode ? 'dark' : ''}`}>
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="brand"><div className="brand-mark"><Users size={17} /></div><div><strong>TeamOps</strong><small>Team Operations Hub</small></div></div>
-      <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} onChange={(id) => { setActiveWorkspaceId(id); localStorage.setItem('teamops-workspace-id', id) }} />
+      <WorkspaceSwitcher workspaces={workspaces} activeWorkspaceId={activeWorkspaceId} onCreate={createWorkspace} onChange={(id) => { setActiveWorkspaceId(id); localStorage.setItem('teamops-workspace-id', id) }} />
       <nav>{navGroups.map((group) => <div className="nav-group" key={group.label}><span className="nav-label">{group.label}</span>{group.items.map(([label, Icon]) => <button className={`nav-item ${activePage === label ? 'active' : ''}`} key={label} onClick={() => { setActivePage(label); setMenuOpen(false) }}><Icon size={16} /><span>{label}</span></button>)}</div>)}</nav>
       <button className="profile-switcher" onClick={logout}><span className={`avatar ${user.color || 'teal'}`}>{initials(user.name)}</span><span className="profile-copy"><strong>{user.name}</strong><small>{user.email}</small></span><ChevronDown size={15} /></button>
     </aside>
     <main className="main-content">
       <header className="topbar"><button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Open navigation"><Menu size={18} /></button><div className="page-heading"><Menu size={16} className="desktop-menu" /><div><h1>Good morning, {user.name}! <span>👋</span></h1><p>Here's what's happening with your team today.</p></div></div><div className="header-actions"><label className="search"><Search size={14} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search tasks..." /></label><button className="icon-button notification" aria-label="Notifications"><Bell size={17} /></button><button className={`header-avatar ${user.color || 'teal'}`}>{initials(user.name)}</button><button className="primary-button" onClick={() => setShowTask(true)}><Plus size={15} /> New Task</button></div></header>
-      {dataLoading ? <LoadingScreen compact /> : activePage === 'Settings' ? <SettingsPage currentUser={user} settings={settings} updateSettings={updateSettings} onLogout={logout} /> : activePage === 'Dashboard' ? <DashboardPage tasks={tasks} projects={projects} members={members} filteredTasks={filteredTasks} onNavigate={setActivePage} /> : <WorkspacePage page={activePage} records={records[activePage] || []} onCreate={addRecord} onBack={() => setActivePage('Dashboard')} onGenerate={() => { setToast(`${activePage} generated successfully`); window.setTimeout(() => setToast(''), 2200) }} />}
+      {!activeWorkspaceId ? <NoWorkspace onCreate={createWorkspace} /> : dataLoading ? <LoadingScreen compact /> : activePage === 'Settings' ? <SettingsPage currentUser={user} settings={settings} updateSettings={updateSettings} onLogout={logout} /> : activePage === 'Dashboard' ? <DashboardPage tasks={tasks} projects={projects} members={members} filteredTasks={filteredTasks} onNavigate={setActivePage} /> : <WorkspacePage page={activePage} records={records[activePage] || []} onCreate={addRecord} onBack={() => setActivePage('Dashboard')} onGenerate={() => { setToast(`${activePage} generated successfully`); window.setTimeout(() => setToast(''), 2200) }} />}
     </main>
     {showTask && <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setShowTask(false)}><form className="modal" onSubmit={createTask}><div className="modal-heading"><div><p className="eyebrow">Tasks</p><h2>Create new task</h2></div><button type="button" className="icon-button" onClick={() => setShowTask(false)} aria-label="Close"><X size={17} /></button></div><label>Task title<input name="title" required placeholder="e.g. Review dashboard concepts" /></label><label>Description<textarea name="description" placeholder="Add context for the team..." rows="3"></textarea></label><div className="modal-footer"><button type="button" className="secondary-button" onClick={() => setShowTask(false)}>Cancel</button><button className="primary-button" type="submit"><Check size={15} /> Create task</button></div></form></div>}
     {toast && <div className="toast"><Check size={16} />{toast}</div>}
   </div>
 }
 
-function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onChange }) {
+function WorkspaceSwitcher({ workspaces, activeWorkspaceId, onCreate, onChange }) {
   const [open, setOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
   const active = workspaces.find((workspace) => workspace.id === activeWorkspaceId)
-  if (!workspaces.length) return null
+  const submit = async (event) => {
+    event.preventDefault()
+    if (!name.trim()) return
+    await onCreate(name.trim())
+    setName('')
+    setCreating(false)
+    setOpen(false)
+  }
   return <div className="workspace-switcher">
-    <button className="workspace-switcher-button" onClick={() => setOpen(!open)}><BriefcaseBusiness size={14} /><span>{active ? active.name : 'Select workspace'}</span><ChevronDown size={13} /></button>
-    {open && <div className="workspace-switcher-menu">{workspaces.map((workspace) => <button key={workspace.id} className={workspace.id === activeWorkspaceId ? 'active' : ''} onClick={() => { onChange(workspace.id); setOpen(false) }}>{workspace.name}</button>)}</div>}
+    <button className="workspace-switcher-button" onClick={() => setOpen(!open)}><BriefcaseBusiness size={14} /><span>{active ? active.name : workspaces.length ? 'Select workspace' : 'No workspace yet'}</span><ChevronDown size={13} /></button>
+    {open && <div className="workspace-switcher-menu">
+      {workspaces.map((workspace) => <button key={workspace.id} className={workspace.id === activeWorkspaceId ? 'active' : ''} onClick={() => { onChange(workspace.id); setOpen(false) }}>{workspace.name}</button>)}
+      {creating
+        ? <form className="workspace-create-form" onSubmit={submit}><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Workspace name" /><button type="submit" className="workspace-create-submit"><Check size={12} /></button></form>
+        : <button className="workspace-create-button" onClick={() => setCreating(true)}><Plus size={13} /> New workspace</button>}
+    </div>}
   </div>
+}
+
+function NoWorkspace({ onCreate }) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async (event) => {
+    event.preventDefault()
+    if (!name.trim() || busy) return
+    setBusy(true)
+    await onCreate(name.trim())
+    setBusy(false)
+  }
+  return <section className="no-workspace">
+    <div className="placeholder-icon"><BriefcaseBusiness size={26} /></div>
+    <h2>Create your first workspace</h2>
+    <p>Workspaces keep your projects, tasks, and team records organized. Create one to get started.</p>
+    <form className="no-workspace-form" onSubmit={submit}>
+      <input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Acme Engineering" />
+      <button className="primary-button" type="submit" disabled={busy || !name.trim()}><Plus size={15} /> {busy ? 'Creating…' : 'Create workspace'}</button>
+    </form>
+  </section>
 }
 
 function DashboardPage({ tasks, projects, members, filteredTasks, onNavigate }) {
