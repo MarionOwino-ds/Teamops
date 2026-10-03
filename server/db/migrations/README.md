@@ -1,0 +1,17 @@
+-- TeamOps SQLite migrations
+--
+-- Migrations are plain SQL files applied in filename order by
+-- `server/db/migrate.js`. Each file runs inside a transaction and is recorded
+-- in the `schema_migrations` table so it only ever runs once.
+--
+-- Conventions:
+--   * IDs are stable text values (e.g. `ws_default`, `prj_onboarding`) so the
+--     same data can be referenced across environments and later migrated to
+--     Supabase without re-keying.
+--   * Timestamps are ISO-8601 UTC text (`strftime('%Y-%m-%dT%H:%M:%fZ','now')`),
+--     matching what Postgres/Supabase returns, so the API layer does not need
+--     SQLite-specific date handling.
+--   * Avoid SQLite-specific behavior in business logic; keep it in migrations.
+--
+-- To add a migration: create `003_<name>.sql` in this folder. The runner picks
+-- up new files automatically on server start.
